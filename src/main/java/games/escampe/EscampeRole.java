@@ -1,4 +1,8 @@
 package games.escampe;
 
-public enum EscampeRole {
+import iialib.games.model.IRole;
+
+public enum EscampeRole implements IRole{
+        WHITE, 
+        BLACK
 }
