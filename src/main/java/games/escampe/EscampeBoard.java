@@ -313,17 +313,28 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
      */
     @Override
     public ArrayList<EscampeMove> possibleMoves(EscampeRole player) {
-        ArrayList<EscampeMove> moves = new ArrayList<>();
+        boolean isWhite = (player == EscampeRole.WHITE);
+        long myPieces = isWhite ? (whitePaladins | whiteUnicorn) : (blackPaladins | blackUnicorn);
 
-        long myPieces = (player == EscampeRole.WHITE) ? (whitePaladins | whiteUnicorn) 
-                                                    : (blackPaladins | blackUnicorn);
+        if(myPieces == 0L){ // Si je n'ai pas encore placé mes pièces
+            // TODO : gérer le placement initial (bibliothèque d'ouverture selon premier coup ou ce qu'a joué l'adversaire)
+            return new ArrayList<>(); // Pour l'instant on retourne une liste vide
+        }
 
-        // Boucle sur toutes les cases
-        for (int from = 0; from < 36; from++) {
+        // Coups dans le jeu normal
+
+        ArrayList<EscampeMove> moves = new ArrayList<>(40); // Pré-allocation d'une taille approximative
+
+        for (int from = 0; from < 36; from++) { // Boucle sur les 36 cases
             if ((myPieces & (1L << from)) == 0) continue; // pas ma pièce
 
-            for (int to = 0; to < 36; to++) {
+            int lisere = getLisereType(from);
+            if (nextMoveConstraint != 0 && lisere != nextMoveConstraint) continue; // Pas la bonne contrainte
+
+            for (int to = 0; to < 36; to++) { // Boucle sur les 36 cases de destination
                 if (from == to) continue; // éviter de créer un coup inutile
+
+                if (PATH_CACHE[from][to] == null) continue; // Pas de chemin géométrique
 
                 // Crée le coup sous forme "A1-B2" avec string
                 String moveStr = indexToString(from) + "-" + indexToString(to);
@@ -333,7 +344,6 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
             }
         }
 
-        // TODO : gérer le cas de placement initial pour licorne + paladins
         return moves;
     }
 
@@ -418,14 +428,31 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
      */
     @Override
     public boolean isGameOver() {
-        // TODO
+        if(blackUnicorn == 0L && blackPaladins != 0L) return true; // Blanc gagne (licorne noire capturée)
+        if(whiteUnicorn == 0L && whitePaladins != 0L) return true; // Noir gagne (licorne blanche capturée)
         return false;
     }
 
+    /** Retourne les scores des joueurs lorsque la partie est terminée.
+     * @return une liste de Score pour chaque joueur
+     */
     @Override
     public ArrayList<Score<EscampeRole>> getScores() {
-        // TODO
-        ArrayList<Score<EscampeRole>> scores = new ArrayList<Score<EscampeRole>>();
+        ArrayList<Score<EscampeRole>> scores = new ArrayList<>();
+        if(this.isGameOver()){
+            if(blackUnicorn == 0L){
+                scores.add(new Score<>(EscampeRole.WHITE, Score.Status.WIN, 1));
+                scores.add(new Score<>(EscampeRole.BLACK, Score.Status.LOOSE, 0));
+            } else if(whiteUnicorn == 0L){
+                scores.add(new Score<>(EscampeRole.BLACK, Score.Status.WIN, 1));
+                scores.add(new Score<>(EscampeRole.WHITE, Score.Status.LOOSE, 0));
+            }
+        }
+        else{
+            // Partie non terminée, scores nuls
+            scores.add(new Score<>(EscampeRole.WHITE, Score.Status.TIE, 0));
+            scores.add(new Score<>(EscampeRole.BLACK, Score.Status.TIE, 0));
+        }
         return scores;
     }
 
