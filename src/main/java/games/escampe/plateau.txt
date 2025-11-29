@@ -1,0 +1,8 @@
+% Plateau Escampe initial
+0 n n N - - - 0
+1 n n n - - - 1
+2 - - - - - - 2
+3 - - - - - - 3
+4 b b b - - - 4
+5 B b b - - - 5
+% Colonnes ABCDEF

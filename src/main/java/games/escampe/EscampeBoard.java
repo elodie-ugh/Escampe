@@ -1,11 +1,12 @@
 package games.escampe;
 
 import java.io.*;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
+import iialib.games.model.IBoard;
+import iialib.games.model.Score;
 
-public class EscampeBoard implements Partie1 {
+public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,EscampeBoard> {
 
     // ------------ Constantes ------------
 
@@ -19,9 +20,9 @@ public class EscampeBoard implements Partie1 {
 
     // ------------ Variables d'etat ------------
 
-    private static long whitePaladins, blackPaladins, whiteUnicorn, blackUnicorn; // Positions des pièces sur le plateau
-    private static int currentTurn; // 0 = blanc, 1 = noir
-    private static int nextMoveConstraint; // 0 = aucun, 1 = liseré1, 2 = liseré2, 3 = liseré3
+    private long whitePaladins, blackPaladins, whiteUnicorn, blackUnicorn; // Positions des pièces sur le plateau
+    private EscampeRole currentTurn; // 0 = blanc, 1 = noir
+    private int nextMoveConstraint; // 0 = aucun, 1 = liseré1, 2 = liseré2, 3 = liseré3
 
     // ------------ Initialisation statique ------------
 
@@ -172,13 +173,10 @@ public class EscampeBoard implements Partie1 {
      * @param player le joueur qui joue, représenté par "noir" ou "blanc".
      */
     @Override
-    public boolean isValidMove(String move, String player) {
-        if(move.length() > 5) return isValidPlacementMove(move, player); // Si pas sous format "A1-B2" alors Placement (1er coup)
-
-        int from = stringToIndex(move, 0); // récupérer l'index de départ
-        int to = stringToIndex(move, 3); // récupérer l'index d'arrivée
-
-        return isValidGameplayMove(from, to, player); // Sinon forme générale
+    public boolean isValidMove(EscampeMove move, EscampeRole player) {
+        if (move == null) return false;
+        if (move.isPlacement()) return isValidPlacementMove(move, player);
+        return isValidGameplayMove(move, player);
     }
 
     /** Vérifie si le coup de placement est valide
@@ -186,10 +184,11 @@ public class EscampeBoard implements Partie1 {
      * @param player le joueur qui joue, représenté par "noir" ou "blanc".
      * @return vrai si le coup est valide
      */
-    private boolean isValidPlacementMove(String move, String player) {
-        if(move == null || move.length() != 17) return false; // Doit être de la forme "C6/A6/B5/D5/E6/F5"
+    private boolean isValidPlacementMove(EscampeMove move, EscampeRole player) {
+        int[] indices = move.getPlacementIndices();
+        if (indices == null || indices.length != 6) return false; 
 
-        boolean isWhite = player.equalsIgnoreCase("blanc");
+        boolean isWhite = player == EscampeRole.WHITE;
         long mine = isWhite ? (whiteUnicorn | whitePaladins) : (blackUnicorn | blackPaladins); // Mes pièces
         long opponent = isWhite ? (blackUnicorn | blackPaladins) : (whiteUnicorn | whitePaladins); // Pièces adverses
 
@@ -198,8 +197,7 @@ public class EscampeBoard implements Partie1 {
         int minRow, maxRow;
 
         if(opponent == 0L){ // Si le plateau est vide, on peut choisir haut ou bas (lignes 1-2 ou 5-6)
-            int firstIndex = stringToIndex(move, 0);
-            int firstRow = firstIndex / 6;
+            int firstRow = indices[0] / 6;
             if(firstRow == 0 || firstRow == 1){ // Choisi le haut
                 minRow = 0;
                 maxRow = 1;
@@ -221,8 +219,7 @@ public class EscampeBoard implements Partie1 {
 
         long moveMask = 0L; // Masque des positions où je veux placer mes pièces
 
-        for(int i = 0; i < 17; i += 3){ // 6 boucles avec pas de 3 caractères
-            int index = stringToIndex(move, i);
+        for (int index : indices){ // 6 boucles avec pas de 3 caractères
             if(index < 0 || index > 35) return false; // Index invalide
 
             int row = index / 6;
@@ -242,11 +239,13 @@ public class EscampeBoard implements Partie1 {
      * @param player le joueur qui joue, représenté par "noir" ou "blanc".
      * @return vrai si le coup est valide
      */
-    private boolean isValidGameplayMove(int from, int to, String player) {
+    private boolean isValidGameplayMove(EscampeMove move, EscampeRole player) {
+        int from = move.getFromIndex();
+        int to = move.getToIndex();
         if(from == to || from < 0 || from > 35 || to < 0 || to > 35) return false; // Mêmes cases ou index invalides
 
         // Récupération des bitboards
-        boolean isWhite = player.equalsIgnoreCase("blanc");
+        boolean isWhite = player == EscampeRole.WHITE;
         long myPaladins = isWhite ? whitePaladins : blackPaladins;
         long myUnicorn = isWhite ? whiteUnicorn : blackUnicorn;
         long opponentPaladins = isWhite ? blackPaladins : whitePaladins;
@@ -298,9 +297,29 @@ public class EscampeBoard implements Partie1 {
      * @param player le joueur qui joue, représenté par "noir" ou "blanc".
      */
     @Override
-    public String[] possiblesMoves(String player) {
-        // TODO
-        return null;
+    public ArrayList<EscampeMove> possibleMoves(EscampeRole player) {
+        ArrayList<EscampeMove> moves = new ArrayList<>();
+
+        long myPieces = (player == EscampeRole.WHITE) ? (whitePaladins | whiteUnicorn) 
+                                                    : (blackPaladins | blackUnicorn);
+
+        // Boucle sur toutes les cases
+        for (int from = 0; from < 36; from++) {
+            if ((myPieces & (1L << from)) == 0) continue; // pas ma pièce
+
+            for (int to = 0; to < 36; to++) {
+                if (from == to) continue; // éviter de créer un coup inutile
+
+                // Crée le coup sous forme "A1-B2" avec string
+                String moveStr = indexToString(from) + "-" + indexToString(to);
+                EscampeMove move = new EscampeMove(moveStr);
+
+                if (isValidMove(move, player)) moves.add(move);
+            }
+        }
+
+        // TODO : gérer le cas de placement initial pour licorne + paladins
+        return moves;
     }
 
     /** Modifie le plateau en jouant le coup move avec la pièce choisie
@@ -308,16 +327,70 @@ public class EscampeBoard implements Partie1 {
      * @param player le joueur qui joue, représenté par "noir" ou "blanc".
      */
     @Override
-    public void play(String move, String player) {
-        // TODO
+    public EscampeBoard play(EscampeMove move, EscampeRole player) { //string avant
+        // Créer une copie du plateau courant
+        EscampeBoard copy = new EscampeBoard();
+        copy.whitePaladins = this.whitePaladins;
+        copy.whiteUnicorn = this.whiteUnicorn;
+        copy.blackPaladins = this.blackPaladins;
+        copy.blackUnicorn = this.blackUnicorn;
+        copy.currentTurn = this.currentTurn;
+        copy.nextMoveConstraint = this.nextMoveConstraint;
+
+        if (move.isPlacement()) {
+            // Placement initial : indices de la licorne et paladins
+            int[] indices = move.getPlacementIndices();
+            if (player == EscampeRole.WHITE) {
+                copy.whiteUnicorn |= 1L << indices[0]; // Licorne
+                for (int i = 1; i < 6; i++) copy.whitePaladins |= 1L << indices[i];
+            } else {
+                copy.blackUnicorn |= 1L << indices[0]; // Licorne
+                for (int i = 1; i < 6; i++) copy.blackPaladins |= 1L << indices[i];
+            }
+        } else {
+            // Déplacement classique : A1-B2
+            int from = move.getFromIndex();
+            int to   = move.getToIndex();
+            long fromMask = 1L << from;
+            long toMask   = 1L << to;
+
+            if (player == EscampeRole.WHITE) {
+                if ((copy.whiteUnicorn & fromMask) != 0) {
+                    copy.whiteUnicorn &= ~fromMask;
+                    copy.whiteUnicorn |= toMask;
+                } else {
+                    copy.whitePaladins &= ~fromMask;
+                    copy.whitePaladins |= toMask;
+                }
+            } else {
+                if ((copy.blackUnicorn & fromMask) != 0) {
+                    copy.blackUnicorn &= ~fromMask;
+                    copy.blackUnicorn |= toMask;
+                } else {
+                    copy.blackPaladins &= ~fromMask;
+                    copy.blackPaladins |= toMask;
+                }
+            }
+        }
+
+        // Changer le joueur courant
+        copy.currentTurn = (player == EscampeRole.WHITE) ? EscampeRole.BLACK : EscampeRole.WHITE;
+        return copy;
     }
 
     /** Vrai lorsque le plateau correspond à une fin de partie.
      */
     @Override
-    public boolean gameOver() {
+    public boolean isGameOver() {
         // TODO
         return false;
+    }
+
+    @Override
+    public ArrayList<Score<EscampeRole>> getScores() {
+        // TODO
+        ArrayList<Score<EscampeRole>> scores = new ArrayList<Score<EscampeRole>>();
+        return scores;
     }
 
     // --------------------- Outils internes ---------------------
@@ -326,7 +399,7 @@ public class EscampeBoard implements Partie1 {
      * @param index l'index de la case (0-35)
      * @return le type de liseré (0 = aucun, 1 = liseré 1, 2 = liseré 2, 3 = liseré 3)
      */
-    private static int getLisereType(int index) {
+    public static int getLisereType(int index) {
         long mask = 1L << index;
         if((LISERE_1 & mask) != 0) return 1;
         if((LISERE_2 & mask) != 0) return 2;
@@ -409,5 +482,11 @@ public class EscampeBoard implements Partie1 {
             }
         }
     }
+
+    // ----------------------------Getters-----------------------------
+    public long getWhitePaladins() { return whitePaladins; }
+    public long getBlackPaladins() { return blackPaladins; }
+    public long getWhiteUnicorn() { return whiteUnicorn; }
+    public long getBlackUnicorn() { return blackUnicorn; }
 
 }
