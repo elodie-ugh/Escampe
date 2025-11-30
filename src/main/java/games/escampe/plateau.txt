@@ -1,8 +1,8 @@
-% Plateau Escampe initial
-0 n n N - - - 0
-1 n n n - - - 1
-2 - - - - - - 2
-3 - - - - - - 3
-4 b b b - - - 4
-5 B b b - - - 5
-% Colonnes ABCDEF
+%  ABCDEF
+01 -nb--b 01
+02 ------ 02
+03 --bb-n 03
+04 b---n- 04
+05 -nn--- 05
+06 ----N- 06
+%  ABCDEF

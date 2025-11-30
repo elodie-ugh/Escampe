@@ -17,33 +17,33 @@ public class EscampeHeuristics {
 
 		//Condition 2 : Sécurité de la Licorne 
 		int dangerScore = 0;
-		// long blackPaladins = board.getBlackPaladins();
-        // long whiteUnicorn = board.getWhiteUnicorn();
-        // for(int i=0; i<36; i++) {
-        //     if((whiteUnicorn & (1L<<i))!=0) { // Licorne blanche
-        //         for(int j=0; j<36; j++) {
-        //             if((blackPaladins & (1L<<j))!=0) {
-        //                 // Manhattan distance pour menace
-        //                 int dx = Math.abs((i%6) - (j%6));
-        //                 int dy = Math.abs((i/6) - (j/6));
-        //                 int dist = dx + dy;
-        //                 if(dist==1) dangerScore += 1; // menace immédiate
-        //                 else dangerScore += 1.0/dist; // plus loin = moins dangereux
-        //             }
-        //         }
-        //     }
-        // }
+		long blackPaladins = board.getBlackPaladins();
+        long whiteUnicorn = board.getWhiteUnicorn();
+        for(int i=0; i<36; i++) {
+            if((whiteUnicorn & (1L<<i))!=0) { // Licorne blanche
+                for(int j=0; j<36; j++) {
+                    if((blackPaladins & (1L<<j))!=0) {
+                        // Manhattan distance pour menace
+                        int dx = Math.abs((i%6) - (j%6));
+                        int dy = Math.abs((i/6) - (j/6));
+                        int dist = dx + dy;
+                        if(dist==1) dangerScore += 1; // menace immédiate
+                        else dangerScore += 1.0/dist; // plus loin = moins dangereux
+                    }
+                }
+            }
+        }
 		
 		//Condition 3 : Diversité des contraintes 
 		int diverseLisereScore = 0;
-		// long myPieces = board.getWhitePaladins() | board.getWhiteUnicorn();
-        // HashSet<Integer> lisereSet = new HashSet<>();
-        // for(int i=0; i<36; i++) {
-        //     if((myPieces & (1L<<i))!=0) {
-        //         lisereSet.add(board.getLisereType(i));
-        //     }
-        // }
-        // diverseLisereScore = lisereSet.size();
+		long myPieces = board.getWhitePaladins() | board.getWhiteUnicorn();
+        HashSet<Integer> lisereSet = new HashSet<>();
+        for(int i=0; i<36; i++) {
+            if((myPieces & (1L<<i))!=0) {
+                lisereSet.add(board.getLisereType(i));
+            }
+        }
+        diverseLisereScore = lisereSet.size();
 
 		return possibleMovesScore + dangerScore + diverseLisereScore ; // à voir pour ajuster les poids de chaque condition 
 
@@ -60,33 +60,33 @@ public class EscampeHeuristics {
 
 		//Condition 2 : Sécurité de la Licorne 
 		int dangerScore = 0;
-		// long whitePaladins = board.getWhitePaladins();
-        // long blackUnicorn = board.getBlackUnicorn();
-        // for(int i=0; i<36; i++) {
-        //     if((blackUnicorn & (1L<<i))!=0) { // Licorne noire
-        //         for(int j=0; j<36; j++) {
-        //             if((whitePaladins & (1L<<j))!=0) {
-        //                 // Manhattan distance pour menace
-        //                 int dx = Math.abs((i%6) - (j%6));
-        //                 int dy = Math.abs((i/6) - (j/6));
-        //                 int dist = dx + dy;
-        //                 if(dist==1) dangerScore += 1; // menace immédiate
-        //                 else dangerScore += 1.0/dist; // plus loin = moins dangereux
-        //             }
-        //         }
-        //     }
-        // }
+		long whitePaladins = board.getWhitePaladins();
+        long blackUnicorn = board.getBlackUnicorn();
+        for(int i=0; i<36; i++) {
+            if((blackUnicorn & (1L<<i))!=0) { // Licorne noire
+                for(int j=0; j<36; j++) {
+                    if((whitePaladins & (1L<<j))!=0) {
+                        // Manhattan distance pour menace
+                        int dx = Math.abs((i%6) - (j%6));
+                        int dy = Math.abs((i/6) - (j/6));
+                        int dist = dx + dy;
+                        if(dist==1) dangerScore += 1; // menace immédiate
+                        else dangerScore += 1.0/dist; // plus loin = moins dangereux
+                    }
+                }
+            }
+        }
 		
 		//Condition 3 : Diversité des contraintes 
 		int diverseLisereScore = 0;
-		// long myPieces = board.getBlackPaladins() | board.getBlackUnicorn();
-        // HashSet<Integer> lisereSet = new HashSet<>();
-        // for(int i=0; i<36; i++) {
-        //     if((myPieces & (1L<<i))!=0) {
-        //         lisereSet.add(board.getLisereType(i));
-        //     }
-        // }
-        // diverseLisereScore = lisereSet.size();
+		long myPieces = board.getBlackPaladins() | board.getBlackUnicorn();
+        HashSet<Integer> lisereSet = new HashSet<>();
+        for(int i=0; i<36; i++) {
+            if((myPieces & (1L<<i))!=0) {
+                lisereSet.add(board.getLisereType(i));
+            }
+        }
+        diverseLisereScore = lisereSet.size();
 
 		return possibleMovesScore + dangerScore + diverseLisereScore; // à voir pour ajuster les poids de chaque condition 
 	};

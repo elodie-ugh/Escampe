@@ -7,6 +7,7 @@ import iialib.games.model.IMove;
  * Peut être :
  * - un déplacement (A1-B2)
  * - un placement de 6 pièces (C6/A6/B5/D5/E6/F5)
+ * - un passage ("E")
  */
 public class EscampeMove implements IMove {
 
@@ -15,9 +16,38 @@ public class EscampeMove implements IMove {
     private final boolean pass;
 
     public EscampeMove(String move) {
-        this.rawMove = move;
-        this.placement = move.length() > 5; // placement si > 5 (ex: 17 caractères)
-        this.pass = move.equals("E");
+        if (move == null || move.trim().isEmpty()) {
+            throw new IllegalArgumentException("Coup vide");
+        }
+
+        this.rawMove = move.trim();
+        this.pass = rawMove.equalsIgnoreCase("E");
+
+        // Détecte si c'est un placement (6 positions séparées par '/')
+        String[] parts = rawMove.split("/");
+        this.placement = !pass && parts.length == 6;
+
+        // Vérifie la syntaxe du coup
+        if (!pass && !placement) {
+            // Coup normal de type "A1-B2"
+            String cleanMove = rawMove.replaceAll("\\s", ""); // Supprime les espaces éventuels
+            if (cleanMove.length() != 5 || cleanMove.charAt(2) != '-') {
+                throw new IllegalArgumentException("Coup de déplacement invalide : " + rawMove);
+            }
+            if (!isValidCell(cleanMove.substring(0, 2)) || !isValidCell(cleanMove.substring(3, 5))) {
+                throw new IllegalArgumentException("Coup de déplacement contient des cases invalides : " + rawMove);
+            }
+        } else if (placement) {
+            // Placement de 6 pièces "C6/A6/B5/D5/E6/F5"
+            if (parts.length != 6) {
+                throw new IllegalArgumentException("Placement doit contenir 6 positions : " + rawMove);
+            }
+            for (String cell : parts) {
+                if (!isValidCell(cell.trim())) {
+                    throw new IllegalArgumentException("Placement contient une case invalide : " + cell);
+                }
+            }
+        }
     }
 
     public boolean isPlacement() {
@@ -29,20 +59,23 @@ public class EscampeMove implements IMove {
     }
 
     public int getFromIndex() {
-        if (placement) return -1;
-        return stringToIndex(rawMove, 0);
+        if (placement || pass) return -1;
+        String cleanMove = rawMove.replaceAll("\\s", "");
+        return stringToIndex(cleanMove.substring(0, 2));
     }
 
     public int getToIndex() {
-        if (placement) return -1;
-        return stringToIndex(rawMove, 3);
+        if (placement || pass) return -1;
+        String cleanMove = rawMove.replaceAll("\\s", "");
+        return stringToIndex(cleanMove.substring(3, 5));
     }
 
-    public int[] getPlacementIndices() { // Doit être de la forme "C6/A6/B5/D5/E6/F5"
+    public int[] getPlacementIndices() {
         if (!placement) return null;
+        String[] cells = rawMove.split("/");
         int[] indices = new int[6];
-        for (int i = 0; i < 17; i += 3) {
-            indices[i / 3] = stringToIndex(rawMove, i);
+        for (int i = 0; i < 6; i++) {
+            indices[i] = stringToIndex(cells[i].trim());
         }
         return indices;
     }
@@ -56,9 +89,21 @@ public class EscampeMove implements IMove {
         return rawMove;
     }
 
-    private int stringToIndex(String s, int offset) {
-        return (s.charAt(offset + 1) - '1') * 6 + (s.charAt(offset) - 'A');
+    // --------------------- Méthodes internes ---------------------
+
+    private boolean isValidCell(String cell) {
+        if (cell.length() != 2) return false;
+        char col = cell.charAt(0);
+        char row = cell.charAt(1);
+        return (col >= 'A' && col <= 'F') && (row >= '1' && row <= '6');
+    }
+
+    private int stringToIndex(String cell) {
+        if (cell.length() != 2) {
+            throw new IllegalArgumentException("Case invalide pour conversion en index : " + cell);
+        }
+        char col = cell.charAt(0);
+        char row = cell.charAt(1);
+        return (row - '1') * 6 + (col - 'A');
     }
 }
-
-

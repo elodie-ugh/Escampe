@@ -11,9 +11,13 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
     // ------------ Constantes ------------
 
     // Masques pour les liserés (Bit 0 = case libre, Bit 1 = liseré)
-    private static final long LISERE_1 = 0b100010_010100_001010_010001_101001_000100L; // 0b pour binaire et L pour long
-    private static final long LISERE_2 = 0b011001_000001_100100_100100_000001_011001L;
-    private static final long LISERE_3 = 0b000100_101010_010001_001010_010100_100010L;
+    // private static final long LISERE_1 = 0b100010_010100_001010_010001_101001_000100L; // 0b pour binaire et L pour long
+    // private static final long LISERE_2 = 0b011001_000001_100100_100100_000001_011001L;
+    // private static final long LISERE_3 = 0b000100_101010_010001_001010_010100_100010L;
+
+    private static final long LISERE_1 = (1L<<0) | (1L<<4) | (1L<<7) | (1L<<9) | (1L<<14) | (1L<<16) | (1L<<19) | (1L<<23) | (1L<<24) | (1L<<26) | (1L<<28) | (1L<<33);
+    private static final long LISERE_2 = (1L<<1) | (1L<<2) | (1L<<5) | (1L<<11) | (1L<<12) | (1L<<15) | (1L<<18) | (1L<<21) | (1L<<29) | (1L<<31) | (1L<<32) | (1L<<35);
+    private static final long LISERE_3 = (1L<<3) | (1L<<6) | (1L<<8) | (1L<<10) | (1L<<13) | (1L<<17) | (1L<<20) | (1L<<22) | (1L<<25) | (1L<<27) | (1L<<30) | (1L<<34);
 
     private static final String[] COORD_CACHE = new String[36]; // Cache des coordonnées des cases pour éviter de les recalculer
     private static final long[][][] PATH_CACHE = new long[36][36][]; // Cache des chemins entre chaque paire de cases (null si impossible)
@@ -42,6 +46,12 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
 
     public EscampeBoard() {
         // Constructeur par défaut
+        this.whitePaladins = 0L;
+        this.blackPaladins = 0L;
+        this.whiteUnicorn = 0L;
+        this.blackUnicorn = 0L;
+        this.currentTurn = EscampeRole.BLACK; // le noir place en premier
+        this.nextMoveConstraint = 0;
     }
 
     // Constructeur de copie
@@ -72,7 +82,7 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
      * @param index l'index entier
      * @return la chaîne de caractères correspondante
      */
-    private static String indexToString(int index) {
+    public static String indexToString(int index) {
         return COORD_CACHE[index];
     }
 
@@ -191,6 +201,11 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
     @Override
     public boolean isValidMove(EscampeMove move, EscampeRole player) {
         if (move == null) return false;
+        if (move.isPass()) {
+            // Le joueur peut passer seulement si possibleMoves est vide
+            ArrayList<EscampeMove> moves = possibleMoves(player);
+            return moves.isEmpty();
+        }
         if (move.isPlacement()) return isValidPlacementMove(move, player);
         return isValidGameplayMove(move, player);
     }
@@ -316,15 +331,25 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
         boolean isWhite = (player == EscampeRole.WHITE);
         long myPieces = isWhite ? (whitePaladins | whiteUnicorn) : (blackPaladins | blackUnicorn);
 
-        if(myPieces == 0L){ // Si je n'ai pas encore placé mes pièces
-            // TODO : gérer le placement initial (bibliothèque d'ouverture selon premier coup ou ce qu'a joué l'adversaire)
-            return new ArrayList<>(); // Pour l'instant on retourne une liste vide
-        }
-
-        // Coups dans le jeu normal
-
         ArrayList<EscampeMove> moves = new ArrayList<>(40); // Pré-allocation d'une taille approximative
 
+        // ----------------- Placement initial -----------------
+        if(myPieces == 0L){ // Si je n'ai pas encore placé mes pièces
+            try (BufferedReader br = new BufferedReader(new FileReader(".\\src\\main\\java\\games\\escampe\\openings.txt"))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("%")) continue; // Ignore les lignes vides ou commentaires
+                    EscampeMove move = new EscampeMove(line);
+                    if (isValidMove(move, player)) moves.add(move);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return moves; // Retourne uniquement les coups de placement si plateau vide
+        }
+
+        // ----------------- Coups normaux -----------------
         for (int from = 0; from < 36; from++) { // Boucle sur les 36 cases
             if ((myPieces & (1L << from)) == 0) continue; // pas ma pièce
 
@@ -357,8 +382,6 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
         nextBoard.playVoid(move, player); // Appliquer le coup sur la copie (en void pour l'optimisation)
         return nextBoard;
     }
-
-    // TODO : La méthode playVoid est optimisée donc essayer de l'utiliser au lieu de play
 
     /** Modifie le plateau courant en jouant le coup move avec la pièce choisie
      * Variante optimisée qui modifie le plateau courant au lieu de créer une copie.
@@ -421,6 +444,7 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
         }
 
         this.nextMoveConstraint = getLisereType(to); // Met à jour la contrainte pour le prochain coup
+        System.out.print("Vous devez jouer un liseré : "+nextMoveConstraint+"\n");
         this.switchTurn();
     }
 
@@ -472,7 +496,7 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
 
     /** Change le joueur courant
      */
-    private void switchTurn() {
+    public void switchTurn() {
         this.currentTurn = (this.currentTurn == EscampeRole.WHITE) ? EscampeRole.BLACK : EscampeRole.WHITE;
     }
 
@@ -552,10 +576,21 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
         }
     }
 
+    /** Réinitialise toutes les pièces pour avoir un plateau vide */
+    public void clearBoard() {
+        whitePaladins = 0L;
+        whiteUnicorn = 0L;
+        blackPaladins = 0L;
+        blackUnicorn = 0L;
+        currentTurn = EscampeRole.BLACK; // Noir place en premier
+        nextMoveConstraint = 0;
+    }
+
     // ----------------------------Getters-----------------------------
     public long getWhitePaladins() { return whitePaladins; }
     public long getBlackPaladins() { return blackPaladins; }
     public long getWhiteUnicorn() { return whiteUnicorn; }
     public long getBlackUnicorn() { return blackUnicorn; }
+    public EscampeRole getCurrentTurn() { return this.currentTurn; }
 
 }
