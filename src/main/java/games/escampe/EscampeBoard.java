@@ -335,6 +335,7 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
 
         // ----------------- Placement initial -----------------
         if(myPieces == 0L){ // Si je n'ai pas encore placé mes pièces
+            // Essayer de charger depuis openings.txt
             try (BufferedReader br = new BufferedReader(new FileReader(".\\src\\main\\java\\games\\escampe\\openings.txt"))) {
                 String line;
                 while ((line = br.readLine()) != null) {
@@ -344,8 +345,14 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
                     if (isValidMove(move, player)) moves.add(move);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                // Fichier n'existe pas ou erreur - on va générer tous les placements possibles
             }
+
+            // Si aucun placement trouvé dans le fichier, générer tous les placements valides
+            if (moves.isEmpty()) {
+                moves = generateAllPlacements(player);
+            }
+
             return moves; // Retourne uniquement les coups de placement si plateau vide
         }
 
@@ -592,5 +599,71 @@ public class EscampeBoard implements Partie1, IBoard<EscampeMove,EscampeRole,Esc
     public long getWhiteUnicorn() { return whiteUnicorn; }
     public long getBlackUnicorn() { return blackUnicorn; }
     public EscampeRole getCurrentTurn() { return this.currentTurn; }
+
+    /**
+     * Génère tous les placements possibles pour un joueur.
+     * Utilisé quand openings.txt n'existe pas ou est vide.
+     * @param player le joueur (NOIR ou BLANC)
+     * @return liste de tous les placements valides
+     */
+    private ArrayList<EscampeMove> generateAllPlacements(EscampeRole player) {
+        ArrayList<EscampeMove> placements = new ArrayList<>();
+
+        // Déterminer les lignes autorisées selon le joueur
+        int[] rows;
+        if (player == EscampeRole.BLACK) {
+            rows = new int[]{0, 1}; // Lignes 1-2 (indices 0-1)
+        } else {
+            rows = new int[]{4, 5}; // Lignes 5-6 (indices 4-5)
+        }
+
+        // Générer toutes les combinaisons de 6 positions parmi 12 cases (2 lignes x 6 colonnes)
+        // On place la Licorne sur chaque case possible, puis 5 Paladins sur les 11 restantes
+        for (int unicornRow : rows) {
+            for (int unicornCol = 0; unicornCol < 6; unicornCol++) {
+                int unicornIndex = unicornRow * 6 + unicornCol;
+
+                // Générer toutes les combinaisons de 5 paladins parmi les 11 cases restantes
+                ArrayList<Integer> availableIndices = new ArrayList<>();
+                for (int row : rows) {
+                    for (int col = 0; col < 6; col++) {
+                        int idx = row * 6 + col;
+                        if (idx != unicornIndex) {
+                            availableIndices.add(idx);
+                        }
+                    }
+                }
+
+                // Générer les combinaisons de 5 paladins (C(11,5) = 462 combinaisons par position de licorne)
+                generateCombinations(availableIndices, 5, 0, new ArrayList<>(), placements, unicornIndex);
+            }
+        }
+
+        return placements;
+    }
+
+    /**
+     * Génère récursivement toutes les combinaisons de k éléments parmi la liste.
+     */
+    private void generateCombinations(ArrayList<Integer> indices, int k, int start,
+                                      ArrayList<Integer> current, ArrayList<EscampeMove> placements,
+                                      int unicornIndex) {
+        if (current.size() == k) {
+            // Créer le placement : Licorne + 5 Paladins
+            StringBuilder placement = new StringBuilder();
+            placement.append(indexToString(unicornIndex)); // Licorne en premier
+            for (int idx : current) {
+                placement.append("/").append(indexToString(idx));
+            }
+            placements.add(new EscampeMove(placement.toString()));
+            return;
+        }
+
+        for (int i = start; i < indices.size(); i++) {
+            current.add(indices.get(i));
+            generateCombinations(indices, k, i + 1, current, placements, unicornIndex);
+            current.remove(current.size() - 1);
+        }
+    }
 
 }
